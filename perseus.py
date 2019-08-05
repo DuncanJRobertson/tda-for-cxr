@@ -30,16 +30,17 @@ def perseus_summarise(img_filename):
     img = cv2.imread(img_filename, 0)
     lungs = lf.get_lungs(img)
     img_dim = np.shape(lungs)
-    lungs_flat = lungs.flatten()
-    perseus_list = np.concatenate([np.array([2]), img_dim, lungs_flat])
+    perseus_list = np.concatenate([np.array([2]), img_dim, lungs.flatten()])
     with open('temp.txt', 'w') as temp:
         temp.write('\n'.join(str(n) for n in perseus_list))
         subprocess.call("perseus cubtop temp.txt out")
         ints_0 = pd.read_csv("out_0.txt", sep=" ", names=["Birth", "Death"])
         ints_1 = pd.read_csv("out_1.txt", sep=" ", names=["Birth", "Death"])
-        betti = pd.read_csv("out_betti.txt", sep=" ", usecols=[2, 3], names=["b0", "b1"])
-        # Betti numbers are not always listed for small t, so we pad with zeroes
-        zeros = pd.DataFrame(np.zeros((256 - len(betti), 2)), columns=["b0", "b1"])
+        betti = pd.read_csv("out_betti.txt", sep=" ", usecols=[2, 3],
+                            names=["b0", "b1"])
+        # Betti numbers are not always listed for small t, so we pad with zeros
+        zeros = pd.DataFrame(np.zeros((256 - len(betti), 2)),
+                             columns=["b0", "b1"])
         betti = pd.concat([zeros, betti])
         betti_stack = betti.stack()
         stats_0 = persistence_stats(ints_0)

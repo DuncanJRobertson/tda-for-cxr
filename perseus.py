@@ -42,8 +42,27 @@ def perseus_summarise(img_filename):
         zeros = pd.DataFrame(np.zeros((256 - len(betti), 2)),
                              columns=["b0", "b1"])
         betti = pd.concat([zeros, betti])
-        betti_stack = betti.stack()
+        betti.index = range(0, 256)
         stats_0 = persistence_stats(ints_0)
         stats_1 = persistence_stats(ints_1)
-    return pd.concat([betti_stack, stats_0, stats_1])
+        df = pd.concat([betti.stack(), stats_0, stats_1]).to_frame()
+    return df.T
+
+
+def perseus_loop(img_path_string):
+    """Create dataframe of topological features from folder of CXR images.
+
+    The path to the image folder can be given relative to the working directory
+    of this script, or can be given as an absolute path."""
+    img_path = Path(img_path_string)
+    out = []
+    with os.scandir(img_path) as folder:
+        for entry in folder:
+            if entry.name.endswith(".png") and entry.is_file():
+                filename = (img_path / entry.name).as_posix()
+                out.append(perseus_summarise(filename))
+    df = pd.concat(out)
+    df.index = range(len(df))
+    return df
+
 

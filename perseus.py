@@ -1,8 +1,12 @@
 import cv2
 import subprocess
+import os
 import pandas as pd
 import numpy as np
 import lungs_finder as lf
+import fnmatch
+from pathlib import Path
+from tqdm import tqdm
 
 
 def persistence_stats(ints):
@@ -33,7 +37,7 @@ def perseus_summarise(img_filename):
     perseus_list = np.concatenate([np.array([2]), img_dim, lungs.flatten()])
     with open('temp.txt', 'w') as temp:
         temp.write('\n'.join(str(n) for n in perseus_list))
-        subprocess.call("perseus cubtop temp.txt out")
+        subprocess.check_output("perseus cubtop temp.txt out")
         ints_0 = pd.read_csv("out_0.txt", sep=" ", names=["Birth", "Death"])
         ints_1 = pd.read_csv("out_1.txt", sep=" ", names=["Birth", "Death"])
         betti = pd.read_csv("out_betti.txt", sep=" ", usecols=[2, 3],
@@ -53,16 +57,16 @@ def perseus_loop(img_path_string):
     """Create dataframe of topological features from folder of CXR images.
 
     The path to the image folder can be given relative to the working directory
-    of this script, or can be given as an absolute path."""
+    of this script, or can be given as an absolute path.
+    Uses tqdm to track progress."""
     img_path = Path(img_path_string)
     out = []
+    n_files = len(fnmatch.filter(os.listdir(img_path), '*.png'))
     with os.scandir(img_path) as folder:
-        for entry in folder:
+        for entry in tqdm(folder, total=n_files):
             if entry.name.endswith(".png") and entry.is_file():
                 filename = (img_path / entry.name).as_posix()
                 out.append(perseus_summarise(filename))
     df = pd.concat(out)
     df.index = range(len(df))
     return df
-
-

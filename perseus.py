@@ -24,14 +24,14 @@ def persistence_stats(ints):
     return stack
 
 
-def perseus_summarise(img_filename):
+def perseus_summarise(img_filepath, img_filename):
     """Find lungs in x-ray and compute their persistence curves and statistics.
 
     You must have installed Perseus from
     http://people.maths.ox.ac.uk/nanda/perseus/index.html
     and added the application to your $PATH folder or equivalent.
     To check this, type "perseus" in your shell."""
-    img = cv2.imread(img_filename, 0)
+    img = cv2.imread(img_filepath, 0)
     lungs = lf.get_lungs(img)
     img_dim = np.shape(lungs)
     perseus_list = np.concatenate([np.array([2]), img_dim, lungs.flatten()])
@@ -49,7 +49,9 @@ def perseus_summarise(img_filename):
         betti.index = range(0, 256)
         stats_0 = persistence_stats(ints_0)
         stats_1 = persistence_stats(ints_1)
-        df = pd.concat([betti.stack(), stats_0, stats_1]).to_frame()
+        name_series = pd.Series(img_filename)
+        series_list = [name_series, betti.stack(), stats_0, stats_1]
+        df = pd.concat(series_list).to_frame()
     return df.T
 
 
@@ -65,8 +67,9 @@ def perseus_loop(img_path_string):
     with os.scandir(img_path) as folder:
         for entry in tqdm(folder, total=n_files):
             if entry.name.endswith(".png") and entry.is_file():
-                filename = (img_path / entry.name).as_posix()
-                out.append(perseus_summarise(filename))
+                filepath = (img_path / entry.name).as_posix()
+                out.append(perseus_summarise(filepath, entry.name))
     df = pd.concat(out)
     df.index = range(len(df))
+    df.rename(columns={0: "Image Index"}, inplace=True)
     return df

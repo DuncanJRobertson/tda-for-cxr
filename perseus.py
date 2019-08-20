@@ -33,6 +33,9 @@ def perseus_summarise(img_filepath, img_filename):
     To check this, type "perseus" in your shell."""
     img = cv2.imread(img_filepath, 0)
     lungs = lf.get_lungs(img)
+    # When get_lungs fails, just use the whole image
+    if len(lungs.T) == 0:
+        lungs = img
     img_dim = np.shape(lungs)
     perseus_list = np.concatenate([np.array([2]), img_dim, lungs.flatten()])
     with open("temp.txt", "w") as temp:

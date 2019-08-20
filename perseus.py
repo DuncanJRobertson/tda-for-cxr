@@ -68,7 +68,11 @@ def perseus_loop(img_path_string):
         for entry in tqdm(folder, total=n_files):
             if entry.name.endswith(".png") and entry.is_file():
                 filepath = (img_path / entry.name).as_posix()
-                out.append(perseus_summarise(filepath, entry.name))
+                try:
+                    out.append(perseus_summarise(filepath, entry.name))
+                except subprocess.CalledProcessError:
+                    print("Perseus error on image " + entry.name)
+                    pass
     df = pd.concat(out)
     df.index = range(len(df))
     df.rename(columns={0: "Image Index"}, inplace=True)

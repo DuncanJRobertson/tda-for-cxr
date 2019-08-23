@@ -59,24 +59,27 @@ def perseus_summarise(img_filepath, img_filename):
     return df.T
 
 
-def perseus_loop(img_path_string):
+def perseus_loop(img_path_string, data_filename):
     """Create dataframe of topological features from folder of CXR images.
 
     The path to the image folder can be given relative to the working directory
     of this script, or can be given as an absolute path.
-    Uses tqdm to track progress."""
+
+    Data is progressively added to data_filename.h5."""
     img_path = Path(img_path_string)
-    out = []
     n_files = len(fnmatch.filter(os.listdir(img_path), "*.png"))
-    with os.scandir(img_path) as folder:
-        for entry in tqdm(folder, total=n_files):
-            if entry.name.endswith(".png") and entry.is_file():
-                filepath = (img_path / entry.name).as_posix()
-                try:
-                    out.append(perseus_summarise(filepath, entry.name))
-                except subprocess.CalledProcessError:
-                    print("Perseus error on image " + entry.name)
-                    pass
-    df = pd.concat(out)
-    df.columns = pd.MultiIndex.from_tuples(df.columns)
-    return df
+    with pd.HDFStore(data_filename + ".h5", mode="w") as store:
+        with os.scandir(img_path) as folder:
+            for entry in tqdm(folder, total=n_files):
+                if entry.name.endswith(".png") and entry.is_file():
+                    filepath = (img_path / entry.name).as_posix()
+                    try:
+                        store.append(
+                            "out",
+                            perseus_summarise(filepath, entry.name),
+                            format="table",
+                        )
+                    except subprocess.CalledProcessError:
+                        print("Perseus error on image " + entry.name)
+                        pass
+        return pd.read_hdf(store)

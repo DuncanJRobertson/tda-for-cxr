@@ -19,7 +19,7 @@ def persistence_stats(ints):
     summary = data.describe().iloc[1:7, :]
     summary.loc["skewness"] = data.skew()
     summary.loc["kurtosis"] = data.kurtosis()
-    stack = summary.stack()
+    stack = summary.stack().swaplevel()
     stack.loc["entropy"] = -sum(n_life * np.log(n_life))
     return stack
 
@@ -50,11 +50,13 @@ def perseus_summarise(img_filepath, img_filename):
         zeros = pd.DataFrame(np.zeros((256 - len(betti), 2)), columns=["b0", "b1"])
         betti = pd.concat([zeros, betti])
         betti.index = range(0, 256)
+        betti_dat = betti.stack().swaplevel()
         stats_0 = persistence_stats(ints_0)
         stats_1 = persistence_stats(ints_1)
         name_series = pd.Series(img_filename)
-        series_list = [name_series, betti.stack(), stats_0, stats_1]
+        series_list = [name_series, betti_dat, stats_0, stats_1]
         df = pd.concat(series_list).to_frame()
+        df.rename(index={0: ("Image Index", "")}, inplace=True)
     return df.T
 
 
@@ -77,6 +79,6 @@ def perseus_loop(img_path_string):
                     print("Perseus error on image " + entry.name)
                     pass
     df = pd.concat(out)
+    df.columns = pd.MultiIndex.from_tuples(df.columns)
     df.index = range(len(df))
-    df.rename(columns={0: "Image Index"}, inplace=True)
     return df

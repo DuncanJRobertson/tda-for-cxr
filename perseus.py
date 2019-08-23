@@ -53,10 +53,9 @@ def perseus_summarise(img_filepath, img_filename):
         betti_dat = betti.stack().swaplevel()
         stats_0 = persistence_stats(ints_0)
         stats_1 = persistence_stats(ints_1)
-        name_series = pd.Series(img_filename)
-        series_list = [name_series, betti_dat, stats_0, stats_1]
+        series_list = [betti_dat, stats_0, stats_1]
         df = pd.concat(series_list).to_frame()
-        df.rename(index={0: ("Image Index", "")}, inplace=True)
+        df.columns = [img_filename]
     return df.T
 
 
@@ -80,5 +79,4 @@ def perseus_loop(img_path_string):
                     pass
     df = pd.concat(out)
     df.columns = pd.MultiIndex.from_tuples(df.columns)
-    df.index = range(len(df))
     return df

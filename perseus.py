@@ -36,6 +36,7 @@ def perseus_summarise(img_filepath, img_filename):
     # When get_lungs fails, just use the whole image
     if len(lungs.T) == 0:
         lungs = img
+        print("\nLung segmentation failed for image " + img_filename)
     img_dim = np.shape(lungs)
     perseus_list = np.concatenate([np.array([2]), img_dim, lungs.flatten()])
     with open("temp.txt", "w") as temp:
@@ -81,5 +82,8 @@ def perseus_loop(img_path_string, data_filename):
                         )
                     except subprocess.CalledProcessError:
                         print("Perseus error on image " + entry.name)
+                        pass
+                    except ValueError:
+                        print("Value error on image +" + entry.name)
                         pass
         return pd.read_hdf(store)

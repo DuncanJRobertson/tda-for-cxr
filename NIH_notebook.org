@@ -1,0 +1,32 @@
+#+Title: Processing the NIH chest x-ray dataset 
+#+Author: Duncan Robertson
+#+EMAIL: duncanr19@gmail.com
+#+PROPERTY: :session *Python* :cache yes :results value graphics :exports both
+* Data preparation
+** Cleaning the data
+We need to separate the diagnosis variable into multiple binary variables, one for each
+pathology, using the trick of https://www.kaggle.com/sbernadac/lung-deseases-data-analysis:
+#+begin_src python :session *Python* :results none
+  import pandas as pd
+  import numpy as np
+  labels = pd.read_csv("Data_Entry_2017.csv",usecols = ['Image Index','Finding Labels','Follow-up #','Patient ID','Patient Age','Patient Gender'])
+  labels.rename(columns={"Follow-up #":("Patient Data","Follow-up #"), "Patient ID":("Patient Data","Patient ID"),
+                              "Patient Age":("Patient Data","Patient Age"),"Patient Gender":("Patient Data","Patient Gender")},inplace=True)
+   pathology_list = ['Cardiomegaly','Emphysema','Effusion','Hernia','Nodule','Pneumothorax','Atelectasis','Pleural_Thickening','Mass','Edema','Consolidation','Infiltration','Fibrosis','Pneumonia']
+    for pathology in pathology_list:  labels[("Pathology",pathology)] = labels['Finding Labels'].apply(lambda x: 1 if pathology in x else 0)
+   labels[("Pathology","Abnormal")] = labels['Finding Labels'].apply(lambda x: 0 if "No Finding" in x else 1)
+  labels.index = labels["Image Index"]
+  labels.drop(["Image Index", "Finding Labels"], inplace=True,axis =1)
+  labels.columns = pd.MultiIndex.from_tuples(labels.columns)
+#+end_src
+
+** Combining TDA output with labels
+We need to combine the TDA output with the above image data:
+#+begin_src python :session *Python* :results none
+  final_data = pd.read_hdf("tda_data.h5")
+  combined = pd.merge(labels,final_data,left_index=True,right_index=True)
+  combined.to_hdf("combined_data.h5","Images001.zip",type="table")
+#+end_src
+
+** 
+* 

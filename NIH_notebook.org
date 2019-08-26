@@ -34,3 +34,170 @@ the labels of  the dim0 and dim1 persistence stats, so I will correct that here:
   dim1_stats.rename(columns = {"n_life":"dim1_norm_life", "midlife":"dim1_midlife", "entropy":"dim1_entropy"}, inplace = True)
   df = pd.concat([tda_labels,betti_nos, dim0_stats, dim1_stats], axis=1)
 #+end_src
+
+** Splitting into test and training data
+ #+begin_src python :session *Python* :results value
+   from sklearn.model_selection import train_test_split
+   from sklearn.preprocessing import normalize
+   Y = df["Pathology","Abnormal"]
+   X = df[["dim0_norm_life", "dim1_norm_life", "dim0_midlife", 
+           "dim1_midlife","dim0_entropy","dim1_entropy"]]
+   normalize(X, copy=False)
+   X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+   B = df[["b0","b1"]]
+   normalize(B, copy=False)
+   B_train, B_test, Y_train, Y_test = train_test_split(B, Y, test_size=0.2, random_state=42)
+
+   Y.sum()/len(Y)
+ #+end_src
+
+ #+RESULTS:
+ : 0.4488693215929558
+ 
+ So 44\% of the x-rays are abnormal in this sample.
+ 
+* Analysis of TDA data
+** Logistic regression
+#+begin_src python :session *Python* :results none
+  from sklearn.linear_model import LogisticRegression
+  logistic = LogisticRegression()
+  logistic.fit(X_train, Y_train)
+  predict_train = logistic.predict(X_train)
+  predict_test = logistic.predict(X_test)
+#+end_src
+
+
+Checking results:
+#+begin_src python :session *Python* :results output
+from sklearn.metrics import classification_report
+#print(classification_report(Y_train,predict_train))
+print("Test set:\n" + classification_report(Y_test,predict_test))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Test set:
+              precision    recall  f1-score   support
+
+           0       0.57      0.85      0.68       535
+           1       0.59      0.25      0.35       465
+
+    accuracy                           0.57      1000
+   macro avg       0.58      0.55      0.51      1000
+weighted avg       0.58      0.57      0.53      1000
+
+
+#+end_example
+
+ 
+** Support Vector Machines
+*** Linear 
+#+begin_src python :session *Python* :results output
+  from sklearn import svm
+  from sklearn.metrics import roc_auc_score
+  linear_svc = svm.LinearSVC()
+  linear_svc.fit(X_train,Y_train)
+  pred_train_lsvc = linear_svc.predict(X_train)
+  pred_test_lsvc = linear_svc.predict(X_test)
+  dec_test_lsvc = linear_svc.decision_function(X_test)
+  print("AUC score is " + str(roc_auc_score(Y_test, dec_test_lsvc)))
+  #print("Training set:\n" + classification_report(Y_train,pred_train_lsvc))
+  print("Test set:\n" + classification_report(Y_test,pred_test_lsvc))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+AUC score is 0.6459531705356245
+Test set:
+              precision    recall  f1-score   support
+
+           0       0.59      0.80      0.68       535
+           1       0.62      0.37      0.46       465
+
+    accuracy                           0.60      1000
+   macro avg       0.60      0.58      0.57      1000
+weighted avg       0.60      0.60      0.58      1000
+#+end_example
+
+Let's look at the Betti curve data:
+
+#+begin_src python :session *Python* :results output
+  linear_svc_B = svm.LinearSVC()
+  linear_svc_B.fit(B_train,Y_train)
+  pred_Btrain_lsvc = linear_svc_B.predict(B_train)
+  pred_Btest_lsvc = linear_svc_B.predict(B_test)
+  dec_Btest_lsvc = linear_svc_B.decision_function(B_test)
+  print("AUC score is " + str(roc_auc_score(Y_test, dec_Btest_lsvc)))
+  #print("Training set:\n" + classification_report(Y_train,pred_Btrain_lsvc))
+  print("Test set:\n" + classification_report(Y_test,pred_Btest_lsvc))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+AUC score is 0.6037584162395739
+Test set:
+              precision    recall  f1-score   support
+
+           0       0.58      0.75      0.65       535
+           1       0.57      0.37      0.45       465
+
+    accuracy                           0.58      1000
+   macro avg       0.57      0.56      0.55      1000
+weighted avg       0.57      0.58      0.56      1000
+#+end_example
+
+58\% accuracy with the Betti curve data and 60\% AuC.
+#+begin_src python :session *Python* :results output
+  all_train = pd.concat([X_train,B_train], axis=1)
+  all_test = pd.concat([X_test,B_test], axis=1)
+  linear_svc_all = svm.LinearSVC()
+  linear_svc_all.fit(all_train,Y_train)
+  pred_alltrain_lsvc = linear_svc_all.predict(all_train)
+  pred_alltest_lsvc = linear_svc_all.predict(all_test)
+  dec_alltest_lsvc = linear_svc_all.decision_function(all_test)
+  print("AUC score is " + str(roc_auc_score(Y_test, dec_alltest_lsvc)))
+  #print(classification_report(Y_train,pred_alltrain_lsvc))
+  print("Test set:\n" + classification_report(Y_test,pred_alltest_lsvc))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+AUC score is 0.627904733192644
+Test set:
+              precision    recall  f1-score   support
+
+           0       0.60      0.77      0.67       535
+           1       0.60      0.40      0.48       465
+
+    accuracy                           0.60      1000
+   macro avg       0.60      0.58      0.58      1000
+weighted avg       0.60      0.60      0.58      1000
+
+
+#+end_example
+AuC decreases with the inclusion of the Betti curve data.
+
+*** Gaussian kernel
+#+begin_src python :session *Python* :results output
+  gauss_svc = svm.SVC(kernel = "rbf")
+  gauss_svc.fit(X_train,Y_train)
+  pred_train_gsvc = gauss_svc.predict(X_train)
+  pred_test_gsvc = gauss_svc.predict(X_test)
+  #print(classification_report(Y_train,pred_train_gsvc))
+  print("Test set:\n" + classification_report(Y_test,pred_test_gsvc))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Test set:
+              precision    recall  f1-score   support
+
+           0       0.54      1.00      0.70       535
+           1       0.00      0.00      0.00       465
+
+    accuracy                           0.54      1000
+   macro avg       0.27      0.50      0.35      1000
+weighted avg       0.29      0.54      0.37      1000
+#+end_example
+Need to do some tweaking, the model is predicting only zeros.

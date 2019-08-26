@@ -9,18 +9,20 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def persistence_stats(ints):
+def persistence_stats(ints, dim_str):
     """Compute summary statistics from lifetimes of persistence intervals."""
     ints.replace(-1, 255, inplace=True)
     life = ints["Death"] - ints["Birth"]
     n_life = life / sum(life)
     midlife = (ints["Birth"] + ints["Death"]) / 2
-    data = pd.concat([n_life.rename("n_life"), midlife.rename("midlife")], axis=1)
+    n_life.rename(dim_str + "_norm_life", inplace=True)
+    midlife.rename(dim_str + "_midlife", inplace=True)
+    data = pd.concat([n_life, midlife], axis=1)
     summary = data.describe().iloc[1:7, :]
     summary.loc["skewness"] = data.skew()
     summary.loc["kurtosis"] = data.kurtosis()
     stack = summary.stack().swaplevel()
-    stack.loc["entropy"] = -sum(n_life * np.log(n_life))
+    stack.loc[dim_str + "_entropy"] = -sum(n_life * np.log(n_life))
     return stack
 
 
@@ -52,8 +54,8 @@ def perseus_summarise(img_filepath, img_filename):
         betti = pd.concat([zeros, betti])
         betti.index = range(0, 256)
         betti_dat = betti.stack().swaplevel()
-        stats_0 = persistence_stats(ints_0)
-        stats_1 = persistence_stats(ints_1)
+        stats_0 = persistence_stats(ints_0, "dim0")
+        stats_1 = persistence_stats(ints_1, "dim1")
         series_list = [betti_dat, stats_0, stats_1]
         df = pd.concat(series_list).to_frame()
         df.columns = [img_filename]

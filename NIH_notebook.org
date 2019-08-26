@@ -2,6 +2,7 @@
 #+Author: Duncan Robertson
 #+EMAIL: duncanr19@gmail.com
 #+PROPERTY: :session *Python* :cache yes :results value graphics :exports both
+
 * Data preparation
 ** Cleaning the data
 We need to separate the diagnosis variable into multiple binary variables, one for each
@@ -20,13 +21,16 @@ pathology, using the trick of https://www.kaggle.com/sbernadac/lung-deseases-dat
   labels.columns = pd.MultiIndex.from_tuples(labels.columns)
 #+end_src
 
-** Combining TDA output with labels
-We need to combine the TDA output with the above image data:
+** Combining the labels with TDA data
+We need to merge the labels with the TDA data output. I mistakenly didn't distinguish
+the labels of  the dim0 and dim1 persistence stats, so I will correct that here:
 #+begin_src python :session *Python* :results none
-  final_data = pd.read_hdf("tda_data.h5")
-  combined = pd.merge(labels,final_data,left_index=True,right_index=True)
-  combined.to_hdf("combined_data.h5","Images001.zip",type="table")
+  tda_data = pd.read_hdf("tda_data.h5")
+  tda_labels = labels.loc[tda_data.index.values,:]  
+  betti_nos = tda_data.iloc[:,0:512]
+  dim0_stats = tda_data.iloc[:,512:529]
+  dim1_stats = tda_data.iloc[:,529:]
+  dim0_stats.rename(columns = {"n_life":"dim0_norm_life", "midlife":"dim0_midlife", "entropy":"dim0_entropy"}, inplace = True)
+  dim1_stats.rename(columns = {"n_life":"dim1_norm_life", "midlife":"dim1_midlife", "entropy":"dim1_entropy"}, inplace = True)
+  df = pd.concat([tda_labels,betti_nos, dim0_stats, dim1_stats], axis=1)
 #+end_src
-
-** 
-* 

@@ -2,60 +2,76 @@
 #+Author: Duncan Robertson
 #+EMAIL: duncanr19@gmail.com
 #+PROPERTY: :session *Python* :cache yes :results value graphics :exports both
+#+latex_header: \usepackage{xcolor}
+#+latex_header: \usepackage{axcolor4wide}
+#+latex_header: \definecolor{bg}{HTML}{F8F8F8}  
+
 
 * Data preparation
 ** Cleaning the data
 We need to separate the diagnosis variable into multiple binary variables, one for each
 pathology, using the trick of https://www.kaggle.com/sbernadac/lung-deseases-data-analysis:
 #+begin_src python :session *Python* :results none
-  import pandas as pd
-  import numpy as np
-  labels = pd.read_csv("Data_Entry_2017.csv",usecols = ['Image Index','Finding Labels','Follow-up #','Patient ID','Patient Age','Patient Gender'])
-  labels.rename(columns={"Follow-up #":("Patient Data","Follow-up #"), "Patient ID":("Patient Data","Patient ID"),
-                              "Patient Age":("Patient Data","Patient Age"),"Patient Gender":("Patient Data","Patient Gender")},inplace=True)
-   pathology_list = ['Cardiomegaly','Emphysema','Effusion','Hernia','Nodule','Pneumothorax','Atelectasis','Pleural_Thickening','Mass','Edema','Consolidation','Infiltration','Fibrosis','Pneumonia']
-    for pathology in pathology_list:  labels[("Pathology",pathology)] = labels['Finding Labels'].apply(lambda x: 1 if pathology in x else 0)
-   labels[("Pathology","Abnormal")] = labels['Finding Labels'].apply(lambda x: 0 if "No Finding" in x else 1)
-  labels.index = labels["Image Index"]
-  labels.drop(["Image Index", "Finding Labels"], inplace=True,axis =1)
-  labels.columns = pd.MultiIndex.from_tuples(labels.columns)
+      import pandas as pd
+      import numpy as np
+      labels = pd.read_csv("Data_Entry_2017.csv",
+                           usecols = ['Image Index','Finding Labels',
+                                      'Follow-up #','Patient ID',
+                                      'Patient Age','Patient Gender'])
+      labels.rename(columns={"Follow-up #":("Patient Data","Follow-up #"),
+                             "Patient ID":("Patient Data","Patient ID"),
+                             "Patient Age":("Patient Data","Patient Age"),
+                             "Patient Gender":("Patient Data","Patient Gender")},
+                    inplace=True)
+      pathology_list = ['Cardiomegaly','Emphysema','Effusion','Hernia','Nodule',
+                         'Pneumothorax','Atelectasis','Pleural_Thickening','Mass',
+                         'Edema','Consolidation','Infiltration','Fibrosis','Pneumonia']
+      for pathology in pathology_list: 
+          labels[("Pathology",pathology)] = labels['Finding Labels'].apply(lambda x: 1 if pathology in x else 0)
+          labels[("Pathology","Abnormal")] = labels['Finding Labels'].apply(lambda x: 0 if "No Finding" in x else 1)
+      labels.index = labels["Image Index"]
+      labels.drop(["Image Index", "Finding Labels"], inplace=True,axis =1)
+      labels.columns = pd.MultiIndex.from_tuples(labels.columns)
 #+end_src
 
 ** Combining the labels with TDA data
 We need to merge the labels with the TDA data output. I mistakenly didn't distinguish
 the labels of  the dim0 and dim1 persistence stats, so I will correct that here:
 #+begin_src python :session *Python* :results none
-  tda_data = pd.read_hdf("tda_data.h5")
-  tda_labels = labels.loc[tda_data.index.values,:]  
-  betti_nos = tda_data.iloc[:,0:512]
-  dim0_stats = tda_data.iloc[:,512:529]
-  dim1_stats = tda_data.iloc[:,529:]
-  dim0_stats.rename(columns = {"n_life":"dim0_norm_life", "midlife":"dim0_midlife", "entropy":"dim0_entropy"}, inplace = True)
-  dim1_stats.rename(columns = {"n_life":"dim1_norm_life", "midlife":"dim1_midlife", "entropy":"dim1_entropy"}, inplace = True)
-  df = pd.concat([tda_labels,betti_nos, dim0_stats, dim1_stats], axis=1)
+      tda_data = pd.read_hdf("tda_data.h5")
+      tda_labels = labels.loc[tda_data.index.values,:]  
+      betti_nos = tda_data.iloc[:,0:512]
+      dim0_stats = tda_data.iloc[:,512:529]
+      dim1_stats = tda_data.iloc[:,529:]
+      dim0_stats.rename(columns = {"n_life":"dim0_norm_life", "midlife":"dim0_midlife", 
+                                   "entropy":"dim0_entropy"}, inplace = True)
+      dim1_stats.rename(columns = {"n_life":"dim1_norm_life", "midlife":"dim1_midlife", 
+                                   "entropy":"dim1_entropy"}, inplace = True)
+      df = pd.concat([tda_labels,betti_nos, dim0_stats, dim1_stats], axis=1)
 #+end_src
 
 ** Splitting into test and training data
  #+begin_src python :session *Python* :results value
-   from sklearn.model_selection import train_test_split
-   from sklearn.preprocessing import normalize
-   Y = df["Pathology","Abnormal"]
-   X = df[["dim0_norm_life", "dim1_norm_life", "dim0_midlife", 
-           "dim1_midlife","dim0_entropy","dim1_entropy"]]
-   normalize(X, copy=False)
-   X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+     from sklearn.model_selection import train_test_split
+     from sklearn.preprocessing import normalize
+     Y = df["Pathology","Abnormal"]
+     X = df[["dim0_norm_life", "dim1_norm_life", "dim0_midlife", 
+             "dim1_midlife","dim0_entropy","dim1_entropy"]]
+     normalize(X, copy=False)
+     X_train, X_test, Y_train, Y_test = train_test_split(X, Y,
+                                                         test_size=0.2, random_state=42)
 
-   B = df[["b0","b1"]]
-   normalize(B, copy=False)
-   B_train, B_test, Y_train, Y_test = train_test_split(B, Y, test_size=0.2, random_state=42)
+     B = df[["b0","b1"]]
+     normalize(B, copy=False)
+     B_train, B_test, Y_train, Y_test = train_test_split(B, Y, test_size=0.2, random_state=42)
 
-   Y.sum()/len(Y)
+     Y.sum()/len(Y)
  #+end_src
 
  #+RESULTS:
  : 0.4488693215929558
  
- So 44\% of the x-rays are abnormal in this sample.
+ So 44% of the x-rays are abnormal in this sample.
  
 * Analysis of TDA data
 ** Logistic regression
@@ -63,6 +79,8 @@ the labels of  the dim0 and dim1 persistence stats, so I will correct that here:
   from sklearn.linear_model import LogisticRegression
   logistic = LogisticRegression()
   logistic.fit(X_train, Y_train)
+  dec_test_lsvc = linear_svc.decision_function(X_test)
+  print("AUC score is " + str(roc_auc_score(Y_test, dec_test_lsvc)))
   predict_train = logistic.predict(X_train)
   predict_test = logistic.predict(X_test)
 #+end_src
@@ -70,13 +88,17 @@ the labels of  the dim0 and dim1 persistence stats, so I will correct that here:
 
 Checking results:
 #+begin_src python :session *Python* :results output
-from sklearn.metrics import classification_report
-#print(classification_report(Y_train,predict_train))
-print("Test set:\n" + classification_report(Y_test,predict_test))
+  from sklearn.metrics import classification_report
+  from sklearn.metrics import roc_auc_score
+  #print(classification_report(Y_train,predict_train))
+  dec_test_logistic = logistic.decision_function(X_test)
+  print("AUC score is " + str(roc_auc_score(Y_test, dec_test_logistic)))
+  print("Test set:\n" + classification_report(Y_test,predict_test))
 #+end_src
 
 #+RESULTS:
 #+begin_example
+AUC score is 0.6234750276354135
 Test set:
               precision    recall  f1-score   support
 
@@ -95,7 +117,6 @@ weighted avg       0.58      0.57      0.53      1000
 *** Linear 
 #+begin_src python :session *Python* :results output
   from sklearn import svm
-  from sklearn.metrics import roc_auc_score
   linear_svc = svm.LinearSVC()
   linear_svc.fit(X_train,Y_train)
   pred_train_lsvc = linear_svc.predict(X_train)
@@ -118,6 +139,8 @@ Test set:
     accuracy                           0.60      1000
    macro avg       0.60      0.58      0.57      1000
 weighted avg       0.60      0.60      0.58      1000
+
+
 #+end_example
 
 Let's look at the Betti curve data:
@@ -135,7 +158,7 @@ Let's look at the Betti curve data:
 
 #+RESULTS:
 #+begin_example
-AUC score is 0.6037584162395739
+AUC score is 0.603754396543061
 Test set:
               precision    recall  f1-score   support
 
@@ -145,9 +168,11 @@ Test set:
     accuracy                           0.58      1000
    macro avg       0.57      0.56      0.55      1000
 weighted avg       0.57      0.58      0.56      1000
+
+
 #+end_example
 
-58\% accuracy with the Betti curve data and 60\% AuC.
+58% accuracy with the Betti curve data and 60% AuC.
 #+begin_src python :session *Python* :results output
   all_train = pd.concat([X_train,B_train], axis=1)
   all_test = pd.concat([X_test,B_test], axis=1)
@@ -163,7 +188,7 @@ weighted avg       0.57      0.58      0.56      1000
 
 #+RESULTS:
 #+begin_example
-AUC score is 0.627904733192644
+AUC score is 0.6278966937996181
 Test set:
               precision    recall  f1-score   support
 
@@ -190,6 +215,10 @@ AuC decreases with the inclusion of the Betti curve data.
 
 #+RESULTS:
 #+begin_example
+c:\python37\lib\site-packages\sklearn\svm\base.py:193: FutureWarning: The default value of gamma will change from 'auto' to 'scale' in version 0.22 to account better for unscaled features. Set gamma explicitly to 'auto' or 'scale' to avoid this warning.
+  "avoid this warning.", FutureWarning)
+c:\python37\lib\site-packages\sklearn\metrics\classification.py:1437: UndefinedMetricWarning: Precision and F-score are ill-defined and being set to 0.0 in labels with no predicted samples.
+  'precision', 'predicted', average, warn_for)
 Test set:
               precision    recall  f1-score   support
 
@@ -199,5 +228,7 @@ Test set:
     accuracy                           0.54      1000
    macro avg       0.27      0.50      0.35      1000
 weighted avg       0.29      0.54      0.37      1000
+
+
 #+end_example
 Need to do some tweaking, the model is predicting only zeros.

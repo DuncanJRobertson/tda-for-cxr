@@ -24,12 +24,12 @@ class HiddenPrints:
         sys.stdout = self._original_stdout
 
 
-def persistence_image(img_filepath, spread, output_dim):
+def persistence_image(img_filepath, var, output_dim):
     """Calculate the persistence image of the 0-dimensional homology diagram.
 
     The 0-dimensional homology is calculated using Ripser and converted to the
     correct format for the persim module, which constructs the image with
-    a Gaussian kernel with a certain variance (spread).
+    a Gaussian kernel with a certain variance (var).
     The persistence image resolution is controlled by the output_dim parameter.
     """
     img = cv2.imread(img_filepath, 0)
@@ -37,13 +37,13 @@ def persistence_image(img_filepath, spread, output_dim):
     dgm[~np.isfinite(dgm)] = -1
     dgm = dgm.astype(int)
     with HiddenPrints():
-        imgs_obj = PersImage(spread=spread, pixels=[output_dim, output_dim])
-    persistence_img = imgs_obj.transform(dgm)
-    return persistence_img
+        imgs_obj = PersImage(spread=var, pixels=[output_dim, output_dim])
+    pers_img = imgs_obj.transform(dgm)
+    return pers_img
 
 
 def persistence_image_loop(img_path_string, data_filename, output_dim, spread):
-    """Create a dataframe of persistence images from a folder of images.
+    """Create a HDF5 file of persistence images from a folder of images.
 
     The path to the image folder can be given relative to the working directory
     of this script, or can be given as an absolute path.
@@ -62,3 +62,18 @@ def persistence_image_loop(img_path_string, data_filename, output_dim, spread):
                         data=persistence_image(filepath, spread, output_dim),
                     )
     print("Images written to " + data_filename + ".h5")
+
+
+def extract_images(data_filename):
+    """Convert an HDF5 file of images into a numpy array.
+
+    Returns a dictionary with the numpy array and the associated image IDs.
+    """
+    with h5py.File(data_filename + ".h5", mode="r") as data:
+        names = list(data.keys())
+        dim = np.array(data[names[0]]).shape[0]
+        out = np.zeros((len(names), dim, dim))
+        for i, name in enumerate(names, start=0):
+            img = np.array(data[name])
+            out[i] = img
+    return {"image_names": names, "pers_images": out}
